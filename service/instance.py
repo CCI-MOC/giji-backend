@@ -1485,7 +1485,7 @@ def get_or_create_security_group(security_group_name, user_neutron):
     else:
         body = {"security_group": {
             "name": security_group_name,
-            "description": "Security Group created by Atmosphere"
+            "description": "Security Group created by GIJI"
              }
         }
         security_group = user_neutron.create_security_group(body=body)
