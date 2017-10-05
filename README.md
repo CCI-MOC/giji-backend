@@ -109,7 +109,7 @@ The following individuals who have help/helped make :cloud: great appear in alph
 + **J. Matt Peterson <cloud-alum@cyverse.org>**
 + **Julian Pistorius <julianp@cyverse.org>**
 
-####GIJI Authors
+#### GIJI Authors
 + **Xu H. Lucas <xuh@massopen.cloud>**
 
 Where the cloud lives!
