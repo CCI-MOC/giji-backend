@@ -23,6 +23,7 @@ static/*
 extras/euca/*
 extras/goodies/*
 extras/init.d/celeryd.default
+extras/systemd/celeryd.default
 extras/install-scripts/*
 extras/sql/*
 extras/ssh/*

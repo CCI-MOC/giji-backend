@@ -6,6 +6,8 @@ import uuid
 from django.core.exceptions import ValidationError
 from django.utils.text import slugify
 from django.utils.timezone import datetime
+
+from celery.result import AsyncResult
 from atmosphere.celery_init import app
 
 from threepio import logger, status_logger
@@ -377,17 +379,12 @@ def resize_and_redeploy(esh_driver, esh_instance, core_identity_uuid):
     """
     from service.tasks.driver import deploy_init_to
     from service.tasks.driver import wait_for_instance, complete_resize
-    from service.deploy import deploy_test
-    touch_script = deploy_test()
     core_identity = CoreIdentity.objects.get(uuid=core_identity_uuid)
 
     task_one = wait_for_instance.s(
         esh_instance.id, esh_driver.__class__, esh_driver.provider,
         esh_driver.identity, "verify_resize")
     raise Exception("Programmer -- Fix this method based on the TODO")
-    # task_two = deploy_script.si(
-    #     esh_driver.__class__, esh_driver.provider,
-    #     esh_driver.identity, esh_instance.id, touch_script)
     task_three = complete_resize.si(
         esh_driver.__class__, esh_driver.provider,
         esh_driver.identity, esh_instance.id,
@@ -440,11 +437,25 @@ def redeploy_instance(
 
     if type(esh_driver) == AtmosphereMockDriver:
         return
+    # HACK: Forces a metadata update to avoid "Instance activity workflow" errors in the GUI
+    # by setting 'tmp_status' to 'initializing' users will not be stuck in a "final state"
+    # if API polling starts _prior_ to instance action being successful.
+    # When 'Instance activity workflow' has been addressed, remove these lines.
+    metadata = {'tmp_status': 'initializing'}
+    _update_instance_metadata(
+        esh_driver,
+        esh_instance,
+        metadata
+    )
+    esh_instance = esh_driver.get_instance(esh_instance.id)
+    # END-HACK
+
     # Start deployment chain based on the instance above
     deploy_chain = get_idempotent_deploy_chain(
         esh_driver.__class__, esh_driver.provider, esh_driver.identity,
         esh_instance, core_identity, core_identity.created_by.username)
     deploy_chain.apply_async()
+    return
 
 
 def restore_ip_chain(esh_driver, esh_instance, redeploy=False,
@@ -1768,7 +1779,7 @@ def update_instance_metadata(core_instance, data={}, replace=False):
     esh_instance = esh_driver.get_instance(instance_id)
     return _update_instance_metadata(esh_driver, esh_instance, data, replace)
 
-def _update_instance_metadata(esh_driver, esh_instance, data={}, replace=True):
+def _update_instance_metadata(esh_driver, esh_instance, data={}, replace=False):
     """
     NOTE: This will NOT WORK for TAGS until openstack
     allows JSONArrays as values for metadata!
@@ -1950,16 +1961,16 @@ def run_instance_volume_action(user, identity, esh_driver, esh_instance, action_
                 'a volume. (Current: %s)'
                 'Retry request when instance is active.'
                 % (instance_id, instance_status))
-        result = task.attach_volume_task(
+        result = task.attach_volume(
                 identity, esh_driver, esh_instance.alias,
                 volume_id, device_location, mount_location)
     elif 'mount_volume' == action_type:
-        result = task.mount_volume_task(
+        result = task.mount_volume(
                 identity, esh_driver, esh_instance.alias,
                 volume_id, device_location, mount_location)
     elif 'unmount_volume' == action_type:
         (result, error_msg) =\
-            task.unmount_volume_task(esh_driver,
+            task.unmount_volume(esh_driver,
                                      esh_instance.alias,
                                      volume_id, device_location,
                                      mount_location)
@@ -1972,7 +1983,7 @@ def run_instance_volume_action(user, identity, esh_driver, esh_instance, action_
                 'Retry request when instance is active.'
                 % (instance_id, instance_status))
         (result, error_msg) =\
-            task.detach_volume_task(esh_driver,
+            task.detach_volume(esh_driver,
                                     esh_instance.alias,
                                     volume_id)
         if not result and error_msg:
@@ -2074,4 +2085,7 @@ def run_instance_action(user, identity, instance_id, action_type, action_params)
     else:
         raise ActionNotAllowed(
             'Unable to to perform action %s.' % (action_type))
+
+    if result_obj == AsyncResult:
+        return str(result_obj)
     return result_obj

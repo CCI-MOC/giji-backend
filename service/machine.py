@@ -81,12 +81,14 @@ def process_machine_request(machine_request, new_image_id, update_cloud=True):
             created_by_identity=owner_identity,
             description=machine_request.new_application_description,
             private=not machine_request.is_public(),
-            tags=tags)
+            tags=tags,
+            access_list=machine_request.new_application_access_list.all())
     else:
         application = update_application(
             parent_version.application,
             machine_request.new_application_name,
             tags,
+            machine_request.new_application_access_list.all(),
             machine_request.new_application_description)
     #FIXME: Either *add* system_files here, or *remove* the entire field.
     app_version = create_app_version(
@@ -229,6 +231,21 @@ def upload_privacy_data(machine_request, new_machine):
     # All in the list will be added as 'sharing' the OStack img
     # All tenants already sharing the OStack img will be added to this list
     return sync_machine_membership(accounts, img, new_machine, tenant_list)
+
+
+def list_membership(accounts, glance_image_id):
+    members = []
+    for image_share in accounts.image_manager.shared_images_for(image_id=glance_image_id):
+        member_id = image_share['member_id']
+        keystone_project = accounts.user_manager.get_project_by_id(member_id)
+        if not keystone_project:
+            logger.warn("No project returned for member ID %s" % member_id)
+            continue
+        if not hasattr(keystone_project, 'name'):
+            logger.warn("Unexpected value. No attribute 'name' for Project:%s" % keystone_project)
+            continue
+        members.append(keystone_project.name)
+    return members
 
 
 def add_membership(image_version, group):

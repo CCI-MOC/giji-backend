@@ -18,7 +18,6 @@ from rtwo.exceptions import LibcloudInvalidCredsError, LibcloudBadResponseError
 
 #TODO: Internalize exception into RTwo
 from rtwo.exceptions import NonZeroDeploymentException, NeutronBadRequest
-from rtwo.exceptions import LibcloudDeploymentError
 from neutronclient.common.exceptions import IpAddressGenerationFailureClient
 
 from threepio import celery_logger, status_logger, logger
@@ -32,7 +31,6 @@ from core.models.identity import Identity
 from core.models.profile import UserProfile
 
 from service.deploy import (
-    check_process,
     instance_deploy, user_deploy,
     build_host_name,
     ready_to_deploy as ansible_ready_to_deploy,
@@ -79,7 +77,7 @@ def complete_resize(driverCls, provider, identity, instance_alias,
         driver = get_driver(driverCls, provider, identity)
         instance = driver.get_instance(instance_alias)
         if not instance:
-            celery_logger.debug("Instance has been teminated: %s." % instance_id)
+            celery_logger.debug("Instance has been teminated: %s." % instance_alias)
             return False, None
         result = instance_service.confirm_resize(
             driver, instance, core_provider_uuid, core_identity_uuid, user)
@@ -406,8 +404,13 @@ def user_deploy_failed(
         celery_logger.error(err_str)
         # Send deploy email
         _send_instance_email_with_failure(driverCls, provider, identity, instance_id, user.username, err_str)
-        # Update metadata on the instance
-        metadata = {'tmp_status': 'user_deploy_error'}
+        # Update metadata on the instance -- use the last 255 chars of traceback (Metadata limited)
+        limited_trace = str(traceback)[-255:]
+        metadata = {
+            'tmp_status': 'user_deploy_error',
+            'fault_message': str(exception_msg),
+            'fault_trace': limited_trace
+        }
         update_metadata.s(driverCls, provider, identity, instance_id,
                           metadata, replace_metadata=False).apply_async()
         celery_logger.debug("user_deploy_failed task finished at %s." % datetime.now())
@@ -435,8 +438,11 @@ def deploy_failed(
         celery_logger.error(err_str)
         driver = get_driver(driverCls, provider, identity)
         instance = driver.get_instance(instance_id)
-
-        metadata = {'tmp_status': 'deploy_error'}
+        limited_trace = str(traceback)[-255:]
+        metadata = {
+            'tmp_status': 'deploy_error',
+            'fault_message': str(exception_msg),
+            'fault_trace': limited_trace}
         update_metadata.s(driverCls, provider, identity, instance.id,
                           metadata, replace_metadata=False).apply_async()
         # Send deploy email
@@ -568,7 +574,7 @@ def get_idempotent_deploy_chain(
             core_identity,
             username=username,
             redeploy=False)
-    elif tmp_status in ['', 'redeploying', 'deploying', 'deploy_error']:
+    elif tmp_status in ['', 'redeploying', 'deploying', 'deploy_error', 'user_deploy_error']:
         celery_logger.info(
             "Instance %s contains the 'deploying' metadata - Redeploy will include deploy ONLY!." %
             instance.id)
@@ -655,17 +661,17 @@ def get_chain_from_active_no_ip(
     network_meta_task = update_metadata.si(
         driverCls, provider, identity, instance.id,
         {'tmp_status': 'networking'})
-    floating_task = add_floating_ip.si(
+    networking_task = add_floating_ip.si(
         driverCls, provider, identity, str(core_identity.uuid), instance.id, delete_status=False)
-    floating_task.link_error(
+    networking_task.link_error(
         deploy_failed.s(driverCls, provider, identity, instance.id))
 
     if instance.extra.get('metadata', {}).get('tmp_status', '') == 'networking':
-        start_chain = floating_task
+        start_chain = networking_task
     else:
         start_chain = network_meta_task
-        start_chain.link(floating_task)
-    end_chain = floating_task
+        start_chain.link(networking_task)
+    end_chain = networking_task
     deploy_start = get_chain_from_active_with_ip(
         driverCls, provider, identity, instance, core_identity,
         username=username, password=password,
@@ -687,7 +693,7 @@ def get_chain_from_active_with_ip(
     start_chain = None
     # Guarantee 'networking' passes deploy_ready_test first!
     deploy_ready_task = deploy_ready_test.si(
-        driverCls, provider, identity, instance.id)
+        driverCls, provider, identity, instance.id, str(core_identity.uuid))
     # ALWAYS start by testing that deployment is possible. then deploy.
     start_chain = deploy_ready_task
 
@@ -707,14 +713,18 @@ def get_chain_from_active_with_ip(
     # Start building a deploy chain
     deploy_meta_task = update_metadata.si(
         driverCls, provider, identity, instance.id,
-        {'tmp_status': 'deploying'})
+        {
+            'tmp_status': 'deploying',
+            'fault_message': "",
+            'fault_trace': ""
+        })
 
     deploy_task = _deploy_instance.si(
         driverCls, provider, identity, instance.id,
         username, None, redeploy)
     deploy_user_task = _deploy_instance_for_user.si(
         driverCls, provider, identity, instance.id,
-        username, None, redeploy)
+        username, redeploy)
     #check_vnc_task = check_process_task.si(
     #    driverCls, provider, identity, instance.id)
     #check_web_desktop = check_web_desktop_task.si(
@@ -838,11 +848,10 @@ def _deploy_ready_failed_email_test(
 
 @task(name="deploy_ready_test",
       default_retry_delay=64,
-      # 16 second hard-set time limit. (NOTE:TOO LONG? -SG)
       soft_time_limit=120,
-      max_retries=300  # Attempt up to two hours
+      max_retries=115  # Attempt up to two hours
       )
-def deploy_ready_test(driverCls, provider, identity, instance_id,
+def deploy_ready_test(driverCls, provider, identity, instance_id, core_identity_uuid,
                       **celery_task_args):
     """
     deploy_ready_test -
@@ -872,6 +881,12 @@ def deploy_ready_test(driverCls, provider, identity, instance_id,
             celery_logger.debug("Instance IP address missing from : %s." % instance_id)
             raise Exception("Instance IP Missing? %s" % instance_id)
 
+        # HACK: A race-condition exists where an instance may enter this task with _two_ private IPs
+        # If this happens, it is _possible_ that the Fixed IP port is invalid.
+        # The method below will attempt to correct that behavior _prior_ to seeing if the instance
+        # networking is indeed ready.
+        if len(instance._node.private_ips) >= 2:
+            _update_floating_ip_to_active_fixed_ip(driver, instance, core_identity_uuid)
     except (BaseException, Exception) as exc:
         celery_logger.exception(exc)
         _deploy_ready_failed_email_test(
@@ -896,10 +911,8 @@ def deploy_ready_test(driverCls, provider, identity, instance_id,
       max_retries=3
       )
 def _deploy_instance_for_user(driverCls, provider, identity, instance_id,
-                    username=None, password=None, token=None, redeploy=False,
+                    username=None, redeploy=False,
                     **celery_task_args):
-    # Note: Splitting preperation (Of the MultiScriptDeployment) and execution
-    # This makes it easier to output scripts for debugging of users.
     try:
         celery_logger.debug("_deploy_instance_for_user task started at %s." % datetime.now())
         # Check if instance still exists
@@ -911,18 +924,19 @@ def _deploy_instance_for_user(driverCls, provider, identity, instance_id,
         if not instance.ip:
             celery_logger.debug("Instance IP address missing from : %s." % instance_id)
             raise Exception("Instance IP Missing? %s" % instance_id)
-        # NOTE: This is required to use ssh to connect.
-        # TODO: Is this still necessary? What about times when we want to use
-        # the adminPass? --Steve
-        celery_logger.info(instance.extra)
-        instance._node.extra['password'] = None
 
     except (BaseException, Exception) as exc:
         celery_logger.exception(exc)
         _deploy_instance.retry(exc=exc)
     try:
         #username = identity.user.username
-        #user_deploy(instance.ip, username, instance_id)
+        # FIXME: first_deploy would be more reliable if it was based
+        # on InstanceStatusHistory (made it to 'active'), otherwise,
+        # an instance that 'networking'->'deploy_error'->'redeploy'
+        # would miss out on scripts that require first_deploy == True..
+        # This will work for initial testing.
+        #first_deploy = not redeploy
+        #user_deploy(instance.ip, username, instance_id, first_deploy=first_deploy)
         #_update_status_log(instance, "Ansible Finished for %s." % instance.ip)
         celery_logger.debug("_deploy_instance_for_user task finished at %s." % datetime.now())
     except AnsibleDeployException as exc:
@@ -943,8 +957,6 @@ def _deploy_instance_for_user(driverCls, provider, identity, instance_id,
 def _deploy_instance(driverCls, provider, identity, instance_id,
                     username=None, password=None, token=None, redeploy=False,
                     **celery_task_args):
-    # Note: Splitting preperation (Of the MultiScriptDeployment) and execution
-    # This makes it easier to output scripts for debugging of users.
     try:
         celery_logger.debug("_deploy_instance task started at %s." % datetime.now())
         # Check if instance still exists
@@ -972,23 +984,6 @@ def _deploy_instance(driverCls, provider, identity, instance_id,
         celery_logger.debug("_deploy_instance task finished at %s." % datetime.now())
     except AnsibleDeployException as exc:
         celery_logger.exception(exc)
-        _deploy_instance.retry(exc=exc)
-    except LibcloudDeploymentError as exc:
-        celery_logger.exception(exc)
-        # TODO: Figure out where `_parse_steps_output` went and reproduce functionality
-        # See: https://github.com/cyverse/atmosphere/issues/491
-        # full_deploy_output = _parse_steps_output(msd)
-        full_deploy_output = '[Steps Omitted]'
-        if isinstance(exc.value, NonZeroDeploymentException):
-            # The deployment was successful, but the return code on one or more
-            # steps is bad. Log the exception and do NOT try again!
-            raise NonZeroDeploymentException,\
-                "One or more Script(s) reported a NonZeroDeployment:%s"\
-                % full_deploy_output,\
-                sys.exc_info()[2]
-        # TODO: Check if all exceptions thrown at this time
-        # fall in this category, and possibly don't retry if
-        # you hit the Exception block below this.
         _deploy_instance.retry(exc=exc)
     except (BaseException, Exception) as exc:
         celery_logger.exception(exc)
@@ -1144,33 +1139,38 @@ def add_floating_ip(driverCls, provider, identity, core_identity_uuid,
             driver._clean_floating_ip()
         # ENDNOTE
 
-        # assign if instance doesn't already have an IP addr
         instance = driver.get_instance(instance_alias)
         if not instance:
             celery_logger.debug("Instance has been teminated: %s." % instance_alias)
             return None
         network_driver = instance_service._to_network_driver(core_identity)
+
         floating_ips = network_driver.list_floating_ips()
+        floating_ip_addr = None
         selected_floating_ip = None
         if floating_ips:
-            for fip in floating_ips:
-                if fip.get("instance_id",'') == instance_alias:
-                    selected_floating_ip = fip["floating_ip_address"]
+            instance_floating_ips = [fip for fip in floating_ips if fip.get("instance_id",'') == instance_alias]
+            selected_floating_ip = instance_floating_ips[0] if instance_floating_ips else None
+
         if selected_floating_ip:
-            floating_ip = selected_floating_ip
+            floating_ip_addr = selected_floating_ip["floating_ip_address"]
             celery_logger.debug(
-                "Reusing existing floating_ip_address - %s" %
-                floating_ip)
+                "Skip floating IP add:"
+                " address %s already exists for Instance %s",
+                floating_ip_addr, instance_alias)
+            floating_ip = selected_floating_ip
         else:
-            floating_ip = network_driver.associate_floating_ip(instance_alias)["floating_ip_address"]
-            celery_logger.debug("Created new floating_ip_address - %s" % floating_ip)
+            floating_ip = network_driver.associate_floating_ip(instance_alias)
+            floating_ip_addr = floating_ip["floating_ip_address"]
+            celery_logger.debug("Created new floating_ip_address - %s" % floating_ip_addr)
+
         _update_status_log(instance, "Networking Complete")
         # TODO: Implement this as its own task, with the result from
         #'floating_ip' passed in. Add it to the deploy_chain before deploy_to
-        hostname = build_host_name(instance.id, floating_ip)
+        hostname = build_host_name(instance.id, floating_ip_addr)
         metadata_update = {
             'public-hostname': hostname,
-            'public-ip': floating_ip
+            'public-ip': floating_ip_addr
         }
         # NOTE: This is part of the temp change, should be removed when moving
         # to vxlan
@@ -1181,7 +1181,7 @@ def add_floating_ip(driverCls, provider, identity, core_identity_uuid,
             network = [net for net in network if net['subnets'] != []][0]
         if instance_ports:
             for idx, fixed_ip_port in enumerate(instance_ports):
-                fixed_ips = fixed_ip_port.get('fixed_ips', [])
+                # fixed_ips = fixed_ip_port.get('fixed_ips', [])
                 mac_addr = fixed_ip_port.get('mac_address')
                 metadata_update['mac-address%s' % idx] = mac_addr
                 metadata_update['port-id%s' % idx] = fixed_ip_port['id']
@@ -1416,6 +1416,58 @@ def update_links(instances):
             continue
     celery_logger.debug("Instances updated: %d" % len(updated))
     return updated
+
+
+def _update_floating_ip_to_active_fixed_ip(driver, instance, core_identity_uuid):
+    """
+    - Given an instance matching the input described:
+      - determine which fixed IP is 'active' and valid for connection
+      - If floating IP is not set to that fixed IP, update the floating IP accordingly
+
+    Input: An instance with 2+ private/fixed IPs and 1+ floating IP attached
+    Output: Floating IP associated with an ACTIVE 'fixed IP' port, attached to instance.
+    Notes:
+      - In a future where >1 fixed IP and >1 floating IP is "normal"
+        this method will need to be changed/removed.
+    """
+    # Determine which port is the active port
+    from service import instance as instance_service
+    core_identity = Identity.objects.get(uuid=core_identity_uuid)
+    network_driver = instance_service._to_network_driver(core_identity)
+    port_id = _select_port_id(network_driver, driver, instance)
+    instance_id = instance.id
+    # NOTE: Strategy is to manage only the first floating IP address. Other IP addresses would be managed by user.
+    floating_ip_addr = selected_floating_ip = None
+    floating_ips = network_driver.list_floating_ips()
+    instance_floating_ips = [fip for fip in floating_ips if fip.get("instance_id", '') == instance_id]
+    selected_floating_ip = instance_floating_ips[0] if instance_floating_ips else None
+    if selected_floating_ip and port_id:
+        floating_ip_addr = selected_floating_ip["floating_ip_address"]
+        previous_port_id = selected_floating_ip["port_id"]
+        if previous_port_id != port_id:
+            celery_logger.info(
+                "Re-setting existing floating_ip_address %s port: %s -> %s",
+                floating_ip_addr, previous_port_id, port_id)
+            selected_floating_ip = network_driver.neutron.update_floatingip(selected_floating_ip['id'], {'floatingip': {'port_id': port_id}})
+    return selected_floating_ip
+
+
+def _select_port_id(network_driver, driver, instance):
+    """
+    - Input: Instance with two fixed IPs (will fail networking)
+      Output: Instance with one, valid fixed IP
+    """
+    instance_alias = instance.id
+    fixed_ip_ports = [p for p in network_driver.list_ports() if p['device_id'] == instance_alias]
+    active_fixed_ip_ports = [p for p in fixed_ip_ports if 'ACTIVE' in p['status']]
+    # Select the first active fixed ip port.
+    # nt.
+    if not active_fixed_ip_ports:
+        logger.warn(
+            "Instance %s has >1 Fixed IPs AND neither is ACTIVE."
+            " Ports found: %s", instance_alias, fixed_ip_ports)
+    port_id = active_fixed_ip_ports[0]['id']
+    return port_id
 
 
 def _cleanup_traceback(err_str):

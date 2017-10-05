@@ -36,11 +36,24 @@ class Application(models.Model):
     description = models.TextField(null=True, blank=True)
     tags = models.ManyToManyField(Tag, blank=True)
     private = models.BooleanField(default=False)
+    access_list = models.ManyToManyField("PatternMatch")
     start_date = models.DateTimeField(default=timezone.now)
     end_date = models.DateTimeField(null=True, blank=True)
     # User/Identity that created the application object
     created_by = models.ForeignKey('AtmosphereUser')
     created_by_identity = models.ForeignKey(Identity, null=True)
+
+    def get_users_from_access_list(self):
+        """
+        Cycle through all users, test each pattern for access
+        - Add user to list if _any_ pattern matches the user
+        - Returns a list of Users who passed the test
+        """
+        from core.models import AtmosphereUser
+        all_users = AtmosphereUser.objects.all()
+        for pattern_match in self.access_list.all():
+            all_users &= pattern_match.validate_users()
+        return all_users
 
     @property
     def all_versions(self):
@@ -156,11 +169,11 @@ class Application(models.Model):
             # This query is not the most clear. Here's an explanation:
             # Include all images created by the user or active images in the
             # users providers that are either shared with the user or public
-            queryset = Application.objects.filter(
+            queryset = Application.objects.select_related('created_by').prefetch_related('versions__machines__instance_source__provider', 'versions__machines__members', 'versions__membership').filter(
                     query.created_by_user(user) |
                     (query.only_current_apps() &
                      query.in_users_providers(user) &
-                     (query.images_shared_with_user(user) | is_public)))
+                     (query.images_shared_with_user_by_ids(user) | is_public)))
         return queryset.distinct()
 
     def _current_versions(self):
@@ -424,7 +437,7 @@ def _user_identity_lookup(provider_uuid, username):
 
 
 def update_application(application, new_name=None, new_tags=None,
-                       new_description=None):
+                       access_list=None, new_description=None):
     """
     This is a dumb way of doing things. Fix this.
     """
@@ -434,6 +447,12 @@ def update_application(application, new_name=None, new_tags=None,
         application.description = new_description
     if new_tags:
         application.tags = new_tags
+    if access_list:
+        # DELETE all access previously added
+        application.access_list.all().delete()
+        for pattern_match in access_list:
+            # Add new access per match
+            application.access_list.add(pattern_match)
     application.save()
     return application
 
@@ -447,6 +466,7 @@ def create_application(
         description=None,
         private=False,
         tags=None,
+        access_list=None,
         uuid=None):
     """
     Create application & Initial ApplicationVersion.
@@ -501,6 +521,9 @@ def create_application(
             uuid=uuid)
     if tags:
         updateTags(new_app, tags, created_by_identity.created_by)
+    if access_list:
+        for pattern_match in access_list:
+            new_app.access_list.add(pattern_match)
     return new_app
 
 #FIXME: This class marked for removal
