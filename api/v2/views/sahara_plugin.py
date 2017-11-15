@@ -35,7 +35,7 @@ class SaharaPluginViewSet(AuthViewSet):
         all_creds = identity.get_all_credentials()
         auth_url = all_creds.get('auth_url')
         project_name = identity.project_name()
-        if "/v3" not in auth_url:
+        if not "/v3" in auth_url:
             auth_url += "/v3"
         token = all_creds['ex_force_auth_token']
         token_auth=v3.Token(

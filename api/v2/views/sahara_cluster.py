@@ -40,7 +40,7 @@ class ClusterViewSet(AuthViewSet):
         all_creds = identity.get_all_credentials()
         auth_url = all_creds.get('auth_url')
         worker_number = data['workerNum']
-        if "/v3" not in auth_url:
+        if not "/v3" in auth_url:
             auth_url += "/v3"
         project_name = identity.project_name()
         token = all_creds['ex_force_auth_token']
@@ -64,15 +64,15 @@ class ClusterViewSet(AuthViewSet):
                     image = img
                     break
             elif plugin_name == "vanilla":
-                if "Sahara: Hadoop 2.7.1 + Spark 1.6.0 on YARN, Trusty" in img.name:
+            	if "Sahara: Hadoop 2.7.1 + Spark 1.6.0 on YARN, Trusty" in img.name:
                     image = img
                     break
             elif plugin_name == "storm":
-                if "Sahara: Storm 1.0.1, Trusty" in img.name:
+            	if "Sahara: Storm 1.0.1, Trusty" in img.name:
                     image = img
                     break
             else:
-                raise Exception("Cannot find an image for the plugin")
+            	raise Exception("Cannot find an image for the plugin")
         image_id = image.id
         '''
         files, heat_template = template_utils.process_template_path("/opt/dev/atmosphere/{plugin}-template.yml".format(plugin=plugin_name))
@@ -177,7 +177,7 @@ class ClusterViewSet(AuthViewSet):
         identity = Identity.objects.get(created_by=user)
         all_creds = identity.get_all_credentials()
         auth_url = all_creds.get('auth_url')
-        if "/v3" not in auth_url:
+        if not "/v3" in auth_url:
             auth_url += "/v3"
         project_name = identity.project_name()
         token = all_creds['ex_force_auth_token']

@@ -27,7 +27,7 @@ class JobViewSet(AuthViewSet):
         identity = Identity.objects.get(created_by=user)
         all_creds = identity.get_all_credentials()
         auth_url = all_creds.get('auth_url')
-        if "/v3" not in auth_url:
+        if not "/v3" in auth_url:
             auth_url += "/v3"
         project_name = identity.project_name()
         token = all_creds['ex_force_auth_token']
@@ -70,11 +70,11 @@ class JobViewSet(AuthViewSet):
         return Response(results, status=status.HTTP_200_OK)
 
     def get_network_and_user_driver(self, user):
-        identity = Identity.objects.get(created_by=user)
+    	identity = Identity.objects.get(created_by=user)
         all_creds = identity.get_all_credentials()
         auth_url = all_creds.get('auth_url')
         project_name = identity.project_name()
-        if "/v3" not in auth_url:
+        if not "/v3" in auth_url:
             auth_url += "/v3"
         token = all_creds['ex_force_auth_token']
         token_auth=v3.Token(
