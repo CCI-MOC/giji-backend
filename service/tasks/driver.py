@@ -726,10 +726,10 @@ def get_chain_from_active_with_ip(
     deploy_user_task = _deploy_instance_for_user.si(
         driverCls, provider, identity, instance.id,
         username, redeploy)
-    check_vnc_task = check_process_task.si(
-        driverCls, provider, identity, instance.id)
-    check_web_desktop = check_web_desktop_task.si(
-        driverCls, provider, identity, instance.id)
+    #check_vnc_task = check_process_task.si(
+    #    driverCls, provider, identity, instance.id)
+    #check_web_desktop = check_web_desktop_task.si(
+    #    driverCls, provider, identity, instance.id)
     remove_status_chain = get_remove_status_chain(
         driverCls,
         provider,
@@ -757,12 +757,15 @@ def get_chain_from_active_with_ip(
     deploy_ready_task.link_error(
         deploy_failed.s(driverCls, provider, identity, instance.id))
     deploy_meta_task.link(deploy_task)
-    deploy_task.link(check_web_desktop)
-    check_web_desktop.link(check_vnc_task)  # Above this line, atmo is responsible for success.
-
-    check_web_desktop.link_error(
+    deploy_task.link(deploy_user_task)
+    deploy_task.link_error(
         deploy_failed.s(driverCls, provider, identity, instance.id))
-    check_vnc_task.link(deploy_user_task)  # this line and below, user can create a failure.
+    #deploy_task.link(check_web_desktop)
+    #check_web_desktop.link(check_vnc_task)  # Above this line, atmo is responsible for success.
+
+    #check_web_desktop.link_error(
+    #    deploy_failed.s(driverCls, provider, identity, instance.id))
+    #check_vnc_task.link(deploy_user_task)  # this line and below, user can create a failure.
     # ready -> metadata -> deployment..
 
     deploy_user_task.link(remove_status_chain)
@@ -892,9 +895,9 @@ def deploy_ready_test(driverCls, provider, identity, instance_id, core_identity_
         deploy_ready_test.retry(exc=exc)
     # USE ANSIBLE
     try:
-        username = identity.user.username
-        playbooks = ansible_ready_to_deploy(instance.ip, username, instance_id)
-        _update_status_log(instance, "Ansible Finished (ready test) for %s." % instance.ip)
+        #username = identity.user.username
+        #playbooks = ansible_ready_to_deploy(instance.ip, username, instance_id)
+        #_update_status_log(instance, "Ansible Finished (ready test) for %s." % instance.ip)
         celery_logger.debug("deploy_ready_test task finished at %s." % datetime.now())
     except AnsibleDeployException as exc:
         deploy_ready_test.retry(exc=exc)
@@ -927,15 +930,15 @@ def _deploy_instance_for_user(driverCls, provider, identity, instance_id,
         celery_logger.exception(exc)
         _deploy_instance.retry(exc=exc)
     try:
-        username = identity.user.username
+        #username = identity.user.username
         # FIXME: first_deploy would be more reliable if it was based
         # on InstanceStatusHistory (made it to 'active'), otherwise,
         # an instance that 'networking'->'deploy_error'->'redeploy'
         # would miss out on scripts that require first_deploy == True..
         # This will work for initial testing.
-        first_deploy = not redeploy
-        user_deploy(instance.ip, username, instance_id, first_deploy=first_deploy)
-        _update_status_log(instance, "Ansible Finished for %s." % instance.ip)
+        #first_deploy = not redeploy
+        #user_deploy(instance.ip, username, instance_id, first_deploy=first_deploy)
+        #_update_status_log(instance, "Ansible Finished for %s." % instance.ip)
         celery_logger.debug("_deploy_instance_for_user task finished at %s." % datetime.now())
     except AnsibleDeployException as exc:
         celery_logger.exception(exc)
@@ -976,9 +979,9 @@ def _deploy_instance(driverCls, provider, identity, instance_id,
         celery_logger.exception(exc)
         _deploy_instance.retry(exc=exc)
     try:
-        username = identity.user.username
-        instance_deploy(instance.ip, username, instance_id)
-        _update_status_log(instance, "Ansible Finished for %s." % instance.ip)
+        #username = identity.user.username
+        #instance_deploy(instance.ip, username, instance_id)
+        #_update_status_log(instance, "Ansible Finished for %s." % instance.ip)
         celery_logger.debug("_deploy_instance task finished at %s." % datetime.now())
     except AnsibleDeployException as exc:
         celery_logger.exception(exc)
@@ -1041,7 +1044,7 @@ def add_security_group_task(driverCls, provider, core_identity,
     except:
         raise Exception("Cannot find the instance")
     try:
-        security_group_name = core_identity.provider.get_config("network", "security_group_name", "default")
+        security_group_name = core_identity.provider.get_config("network", "security_group_name", "giji")
         server_instance.add_security_group(security_group_name)
     except:
         raise Exception("Cannot add the security group to the instance usng nova")
@@ -1127,10 +1130,11 @@ def add_floating_ip(driverCls, provider, identity, core_identity_uuid,
         celery_logger.debug("add_floating_ip task started at %s." % datetime.now())
         core_identity = Identity.objects.get(uuid=core_identity_uuid)
 
+        driver = get_driver(driverCls, provider, identity)
+
         # NOTE: This if statement is a HACK! It will be removed when IP management is enabled in an upcoming version. -SG
         if core_identity.provider.location != 'iPlant Cloud - Tucson':
             # Remove unused floating IPs first, so they can be re-used
-            driver = get_driver(driverCls, provider, identity)
             driver._clean_floating_ip()
         # ENDNOTE
         driver = get_driver(driverCls, provider, identity)

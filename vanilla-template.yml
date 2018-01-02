@@ -1,0 +1,84 @@
+heat_template_version: 2015-10-15
+
+description: Vanilla Cluster created by Giji
+
+parameters:
+
+  image:
+    type: string
+    default: 6dcb10fe-58b3-4f9f-84cc-e3093088a3c7
+
+  plugin:
+    type: string
+    default: vanilla
+
+  version:
+    type: string
+    default: '2.7.1'
+
+  flavor:
+    type: string
+
+  key:
+    type: string
+
+  private_net:
+    type: string
+
+  worker_count:
+    type: number
+
+  name:
+    type: string
+
+resources:
+
+  giji_ng_tmpl-master:
+    type: OS::Sahara::NodeGroupTemplate
+    properties:
+      plugin_name: { get_param: plugin }
+      hadoop_version: { get_param: version }
+      flavor: { get_param: flavor }
+      auto_security_group: True
+      node_processes:
+        - namenode
+        - resourcemanager
+        - historyserver
+        - oozie
+        - spark history server
+  giji_ng_tmpl-worker:
+    type: OS::Sahara::NodeGroupTemplate
+    properties:
+      plugin_name: { get_param: plugin }
+      hadoop_version: { get_param: version }
+      flavor: { get_param: flavor }
+      auto_security_group: True
+      node_processes:
+        - datanode
+        - nodemanager
+
+  giji_ct_tmpl:
+    type: OS::Sahara::ClusterTemplate
+    properties:
+      plugin_name: { get_param: plugin }
+      hadoop_version: { get_param: version }
+      node_groups:
+        - count: { get_param: worker_count }
+          node_group_template_id: { get_resource: giji_ng_tmpl-worker }
+          name: worker
+        - count: 1
+          node_group_template_id: { get_resource: giji_ng_tmpl-master }
+          name: master
+      neutron_management_network: { get_param: private_net }
+
+  giji_cluster:
+    type: OS::Sahara::Cluster
+    properties:
+      name: { get_param: name }
+      plugin_name: { get_param: plugin }
+      hadoop_version: { get_param: version }
+      cluster_template_id: { get_resource: giji_ct_tmpl }
+      image: { get_param: image }
+      key_name: { get_param: key }
+      neutron_management_network: { get_param: private_net }
+

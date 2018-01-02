@@ -345,10 +345,6 @@ def send_instance_email(username, instance_id, instance_name,
     faq_link = email_template.get_link('faq')
     support_email = settings.SUPPORT_EMAIL
     context = {
-        "getting_started_instances_link": getting_started_link.href,
-        "getting_started_instances_name": getting_started_link.topic,
-        "faq_link": faq_link.href,
-        "faq_link_name": faq_link.topic,
         "ssh_keys": ssh_keys,
         "provider_location": provider_location,
         "support_email": support_email,
@@ -368,7 +364,7 @@ def send_instance_email(username, instance_id, instance_name,
     body = render_to_string(
         "core/email/instance_ready.html",
         context=context)
-    subject = 'Your Atmosphere Instance is Available'
+    subject = 'Your GIJI Instance is Available'
     email_args = (username, subject, body)
     return email_from_admin(*email_args)
 

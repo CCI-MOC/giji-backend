@@ -219,7 +219,7 @@ To restore 'basic' functionality, please set settings.ACCOUNT_CREATION_PLUGINS t
 ["atmosphere.plugins.accounts.creation.UserGroup",]"""
 
     @classmethod
-    def create_accounts(cls, provider, username, force=False):
+    def create_accounts(cls, provider, username, force=False, raise_exception=False):
         accounts = []
         for AccountCreationPluginCls in cls.load_plugins(cls.list_of_classes):
             plugin = AccountCreationPluginCls()

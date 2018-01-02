@@ -637,7 +637,7 @@ def allocation_source_overage_enforcement_for_user(allocation_source, user):
             celery_logger.exception(
                 'allocation_source_overage_enforcement_for allocation_source: %s, user: %s, and identity: %s',
                 allocation_source, user, identity)
-    return user_instances
+    return None
 
 
 @task(name="monitor_instances_for")

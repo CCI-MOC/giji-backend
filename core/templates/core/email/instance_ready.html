@@ -1,7 +1,5 @@
 {% spaceless %}
-{% if support_email_header %}
-{{ support_email_header|safe }}
-{% endif %}
+
 {% endspaceless %}
 Hello {{user}},
 
@@ -22,11 +20,11 @@ After the problem has been corrected, you can 'Redeploy' to your instance. If yo
 Your Instance Information:
 * Name: {{instance_name}}
 * IP Address: {{instance_ip}}
-* SSH Username: {{sshuser}}
+* SSH Username: "ubuntu" for Ubuntu images and "centos" for CentOS 7 image (without the quotes)
 * SSH Keys deployed for root: {{ ssh_keys|join:", " }}
 * UUID: {{instance_id}}
 * Cloud Provider: {{provider_location}}
-* Launched at: {{launched_at}} UTC ({{local_launched_at}} Arizona time)
+* Launched at: {{launched_at}} UTC ({{local_launched_at}} Eastern time)
 
 This e-mail notification was auto-generated after instance launch.
 
