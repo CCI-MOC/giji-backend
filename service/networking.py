@@ -30,9 +30,9 @@ def _generate_ssh_kwargs(timeout=120):
 
 
 def _get_unique_id(userid):
-    if 'django_cyverse_auth.authBackends.LDAPLoginBackend' in \
+    if 'django_giji_auth.authBackends.LDAPLoginBackend' in \
             settings.AUTHENTICATION_BACKENDS:
-        from django_cyverse_auth.protocol.ldap import _get_uid_number
+        from django_giji_auth.protocol.ldap import _get_uid_number
         return _get_uid_number(userid)
     else:
         return _get_random_uid(userid)

@@ -2025,7 +2025,8 @@ def run_instance_action(user, identity, instance_id, action_type, action_params)
     identity_uuid = identity.uuid
 
     # NOTE: This if statement is a HACK! It will be removed when IP management is enabled in an upcoming version. -SG
-    reclaim_ip = True if identity.provider.location != 'iPlant Cloud - Tucson' else False
+    #reclaim_ip = True if identity.provider.location != 'iPlant Cloud - Tucson' else False
+    reclaim_ip = False
     # ENDNOTE
 
     # NOTE: This metadata statement is a HACK! It should be removed when all instances matching this metadata key have been removed.

@@ -16,7 +16,7 @@ urlpatterns = [
     url(r'', include("core.urls", namespace="core")),
 
     # Authentication endpoints
-    url(r'', include("django_cyverse_auth.urls", namespace="django_cyverse_auth")),
+    url(r'', include("django_giji_auth.urls", namespace="django_giji_auth")),
 
     # API Layer endpoints
     url(r'^api/', include("api.urls", namespace="api")),

@@ -30,7 +30,7 @@ def create_admin_and_two_regular_users(context):
     user.save()
     with modify_settings(AUTHENTICATION_BACKENDS={
         'prepend': 'django.contrib.auth.backends.ModelBackend',
-        'remove': ['django_cyverse_auth.authBackends.MockLoginBackend']
+        'remove': ['django_giji_auth.authBackends.MockLoginBackend']
     }):
         context.admin_user = user
         context.client.login(username='lenards', password='lenards')

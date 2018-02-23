@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from atmosphere.settings import secrets
-from django_cyverse_auth.models import get_or_create_token, lookupSessionToken
+from django_giji_auth.models import get_or_create_token, lookupSessionToken
 
 from api.permissions import ApiAuthIgnore
 from api.exceptions import invalid_auth
@@ -33,14 +33,12 @@ class Authentication(APIView):
         data = request.data
         username = data.get('username', None)
         password = data.get('password', None)
-        project_name = data.get('project_name', None)
         auth_url = data.get('auth_url', None)
         if not username:
             return invalid_auth("Username missing")
 
         auth_kwargs = {"username":username, "password":password, "request":request}
-        if project_name and auth_url:
-            auth_kwargs['project_name'] = project_name
+        if auth_url:
             auth_kwargs['auth_url'] = auth_url
         user = authenticate(**auth_kwargs)
         if not user:

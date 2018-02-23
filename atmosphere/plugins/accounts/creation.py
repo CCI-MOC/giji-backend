@@ -1,7 +1,7 @@
 from threepio import logger
 from jetstream.allocation import TASAPIDriver
 from cyverse.api import GrouperDriver
-from django_cyverse_auth.protocol.ldap import get_groups_for
+from django_giji_auth.protocol.ldap import get_groups_for
 from django.conf import settings
 from service.exceptions import AccountCreationConflict
 

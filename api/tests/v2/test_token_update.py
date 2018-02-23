@@ -17,7 +17,7 @@ class TokenUpdateTests(APITestCase):
         self.token_uuid = "test-token-1234-debug"
 
     @modify_settings(AUTHENTICATION_BACKENDS={
-        'append': 'django_cyverse_auth.authBackends.OpenstackLoginBackend',
+        'append': 'django_giji_auth.authBackends.OpenstackLoginBackend',
     })
     def test_invalid_provider_token_update(self):
         factory = APIRequestFactory()

@@ -35,11 +35,11 @@ class AuthTests(APITestCase):
         self.user.save()
         self.auth_url = "/auth"
 
-    @override_settings(AUTHENTICATION_BACKENDS=('django_cyverse_auth.authBackends.OpenstackLoginBackend',))
-    @mock.patch('django_cyverse_auth.authBackends.OpenstackLoginBackend', side_effect=OverrideLoginBackend)
+    @override_settings(AUTHENTICATION_BACKENDS=('django_giji_auth.authBackends.OpenstackLoginBackend',))
+    @mock.patch('django_giji_auth.authBackends.OpenstackLoginBackend', side_effect=OverrideLoginBackend)
     def test_valid_openstack_auth(self, patch_func):
-        if 'django_cyverse_auth.authBackends.OpenstackLoginBackend' not in settings.AUTHENTICATION_BACKENDS:
-            self.skipTest('django_cyverse_auth.authBackends.OpenstackLoginBackend not in settings.AUTHENTICATION_BACKENDS')
+        if 'django_giji_auth.authBackends.OpenstackLoginBackend' not in settings.AUTHENTICATION_BACKENDS:
+            self.skipTest('django_giji_auth.authBackends.OpenstackLoginBackend not in settings.AUTHENTICATION_BACKENDS')
         data = {
             'username': self.username,
             'password': self.password,
@@ -52,10 +52,10 @@ class AuthTests(APITestCase):
         self.assertTrue(resp_data['username'] == self.username)
         self.assertTrue(resp_data['token'] is not None)
 
-    @override_settings(AUTHENTICATION_BACKENDS=('django_cyverse_auth.authBackends.OpenstackLoginBackend',))
+    @override_settings(AUTHENTICATION_BACKENDS=('django_giji_auth.authBackends.OpenstackLoginBackend',))
     def test_invalid_openstack_auth(self):
-        if 'django_cyverse_auth.authBackends.OpenstackLoginBackend' not in settings.AUTHENTICATION_BACKENDS:
-            self.skipTest('django_cyverse_auth.authBackends.OpenstackLoginBackend not in settings.AUTHENTICATION_BACKENDS')
+        if 'django_giji_auth.authBackends.OpenstackLoginBackend' not in settings.AUTHENTICATION_BACKENDS:
+            self.skipTest('django_giji_auth.authBackends.OpenstackLoginBackend not in settings.AUTHENTICATION_BACKENDS')
         data = {
             'username': self.username,
             'password': self.password,
@@ -70,11 +70,11 @@ class AuthTests(APITestCase):
         err_message = resp_data['errors'][0]['message']
         self.assertTrue("Username/Password combination was invalid" in err_message)
 
-    @override_settings(AUTHENTICATION_BACKENDS=('django_cyverse_auth.authBackends.LDAPLoginBackend',))
-    @mock.patch('django_cyverse_auth.authBackends.LDAPLoginBackend', side_effect=OverrideLoginBackend)
+    @override_settings(AUTHENTICATION_BACKENDS=('django_giji_auth.authBackends.LDAPLoginBackend',))
+    @mock.patch('django_giji_auth.authBackends.LDAPLoginBackend', side_effect=OverrideLoginBackend)
     def test_valid_ldap_auth(self, patch_func):
-        if 'django_cyverse_auth.authBackends.LDAPLoginBackend' not in settings.AUTHENTICATION_BACKENDS:
-            self.skipTest('django_cyverse_auth.authBackends.LDAPLoginBackend not in settings.AUTHENTICATION_BACKENDS')
+        if 'django_giji_auth.authBackends.LDAPLoginBackend' not in settings.AUTHENTICATION_BACKENDS:
+            self.skipTest('django_giji_auth.authBackends.LDAPLoginBackend not in settings.AUTHENTICATION_BACKENDS')
         data = {
             'username': self.username,
             'password': self.password
@@ -85,10 +85,10 @@ class AuthTests(APITestCase):
         self.assertTrue(resp_data['username'] == self.username, "Response returned unexpected username <%s>, expected %s" % (resp_data['username'], self.username))
         self.assertTrue(resp_data['token'] is not None)
 
-    @override_settings(AUTHENTICATION_BACKENDS=('django_cyverse_auth.authBackends.LDAPLoginBackend',))
+    @override_settings(AUTHENTICATION_BACKENDS=('django_giji_auth.authBackends.LDAPLoginBackend',))
     def test_invalid_ldap_auth(self):
-        if 'django_cyverse_auth.authBackends.LDAPLoginBackend' not in settings.AUTHENTICATION_BACKENDS:
-            self.skipTest('django_cyverse_auth.authBackends.LDAPLoginBackend not in settings.AUTHENTICATION_BACKENDS')
+        if 'django_giji_auth.authBackends.LDAPLoginBackend' not in settings.AUTHENTICATION_BACKENDS:
+            self.skipTest('django_giji_auth.authBackends.LDAPLoginBackend not in settings.AUTHENTICATION_BACKENDS')
         data = {
             'username': self.username,
             'password': self.password

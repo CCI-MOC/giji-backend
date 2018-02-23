@@ -7,7 +7,7 @@ from django.template.loader import render_to_string
 
 from threepio import logger
 
-from django_cyverse_auth.protocol.ldap import lookupEmail
+from django_giji_auth.protocol.ldap import lookupEmail
 
 from core.models import AtmosphereUser as User
 from core.email import email_admin, resource_request_email

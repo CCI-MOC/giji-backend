@@ -5,8 +5,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from django_cyverse_auth.decorators import api_auth_token_required
-from django_cyverse_auth.protocol.ldap import lookupEmail
+from django_giji_auth.decorators import api_auth_token_required
+from django_giji_auth.protocol.ldap import lookupEmail
 
 from api import failure_response
 
