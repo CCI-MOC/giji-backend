@@ -10,8 +10,8 @@ from django.http import HttpResponseRedirect
 from threepio import logger
 
 from atmosphere import settings
-from django_cyverse_auth.decorators import atmo_login_required
-from django_cyverse_auth.models import Token as AuthToken
+from django_giji_auth.decorators import atmo_login_required
+from django_giji_auth.models import Token as AuthToken
 from core.models import AtmosphereUser as DjangoUser
 
 

@@ -1,7 +1,7 @@
 import pytz
 
 from django.utils import timezone
-from django_cyverse_auth.protocol.ldap import lookupUser
+from django_giji_auth.protocol.ldap import lookupUser
 from threepio import logger
 
 
@@ -39,13 +39,13 @@ class LDAPPasswordExpired(ExpirationPlugin):
         if not expiry_dict:
             logger.error(
                 "LDAP password expiration map is missing --"
-                " check django_cyverse_auth: %s" % ldap_user)
+                " check django_giji_auth: %s" % ldap_user)
             return True
         expiry_date = expiry_dict.get('expires_on')
         if not expiry_date:
             logger.error(
                 "LDAP password expiration date is missing -- "
-                "check django_cyverse_auth: %s" % ldap_user)
+                "check django_giji_auth: %s" % ldap_user)
             return True
         _is_expired = expiry_date.replace(
             tzinfo=pytz.UTC) < timezone.now()

@@ -1,4 +1,4 @@
-from django_cyverse_auth.models import Token
+from django_giji_auth.models import Token
 from rest_framework import serializers
 
 

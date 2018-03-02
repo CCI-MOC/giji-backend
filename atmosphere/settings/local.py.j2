@@ -319,45 +319,45 @@ ALWAYS_AUTH_USER = "{{ AUTH_MOCK_USER }}"
 AUTHENTICATION_BACKENDS = (
     {% if AUTH_ENABLE_MOCK %}
     # Use MockLoginBackend first!
-    'django_cyverse_auth.authBackends.MockLoginBackend',
+    'django_giji_auth.authBackends.MockLoginBackend',
     {% else %}
     # MOCK - Uncomment these lines to allow one-user-only access. Useful for debug/development
-    # 'django_cyverse_auth.authBackends.MockLoginBackend',
+    # 'django_giji_auth.authBackends.MockLoginBackend',
     # MOCK - Required to login to 'admin' if the *ONLY* backend is MockLoginBackend.
     # 'django.contrib.auth.backends.ModelBackend',
     {% endif %}
     # Use existing AuthTokens as a login backend (Emulation via API)
-    'django_cyverse_auth.authBackends.AuthTokenLoginBackend',
+    'django_giji_auth.authBackends.AuthTokenLoginBackend',
     {% if AUTH_ENABLE_GLOBUS %}
     # For Web-Access
-    'django_cyverse_auth.authBackends.GlobusOAuthLoginBackend',
+    'django_giji_auth.authBackends.GlobusOAuthLoginBackend',
     # Required to login to 'admin' if the *ONLY* backend is GlobusLoginBackend
     'django.contrib.auth.backends.ModelBackend',
     {% endif %}
     {% if AUTH_ENABLE_CAS %}
     # For Web-Access
-    'django_cyverse_auth.authBackends.CASLoginBackend',
+    'django_giji_auth.authBackends.CASLoginBackend',
     {% endif %}
     {% if AUTH_ENABLE_LDAP %}
     # For Service-Access
-    'django_cyverse_auth.authBackends.LDAPLoginBackend',
+    'django_giji_auth.authBackends.LDAPLoginBackend',
     {% endif %}
     {% if AUTH_ENABLE_OPENSTACK -%}
-    'django_cyverse_auth.authBackends.OpenstackLoginBackend',
+    'django_giji_auth.authBackends.OpenstackLoginBackend',
     {% endif -%}
 )
 # UPDATE REST_FRAMEWORK
 REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] = (
-    'django_cyverse_auth.token.TokenAuthentication',  # Generic Tokens
+    'django_giji_auth.token.TokenAuthentication',  # Generic Tokens
     'rest_framework.authentication.SessionAuthentication',  # Session
     {% if AUTH_ENABLE_GLOBUS %}
-    'django_cyverse_auth.token.GlobusOAuthTokenAuthentication',  # Globus
+    'django_giji_auth.token.GlobusOAuthTokenAuthentication',  # Globus
     {% endif %}
     {% if AUTH_ENABLE_JWT %}
-    'django_cyverse_auth.token.JWTTokenAuthentication',  # JWT
+    'django_giji_auth.token.JWTTokenAuthentication',  # JWT
     {% endif %}
     {% if AUTH_ENABLE_CAS %}
-    'django_cyverse_auth.token.OAuthTokenAuthentication',  # CAS
+    'django_giji_auth.token.OAuthTokenAuthentication',  # CAS
     {% endif %}
 )
 {% endif %}

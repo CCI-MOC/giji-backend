@@ -83,7 +83,7 @@ INSTALLED_APPS = (
     #'sslserver',
 
     # Cyverse libraries
-    'django_cyverse_auth',
+    'django_giji_auth',
     'rtwo',
 
     # atmosphere apps
@@ -180,13 +180,13 @@ AUTH_USER_MODEL = 'core.AtmosphereUser'
 
 AUTHENTICATION_BACKENDS = (
     # For Token-Access
-    #'django_cyverse_auth.authBackends.GlobusOAuthLoginBackend',
-    'django_cyverse_auth.authBackends.AuthTokenLoginBackend',
+    #'django_giji_auth.authBackends.GlobusOAuthLoginBackend',
+    'django_giji_auth.authBackends.AuthTokenLoginBackend',
     # For Web-Access
-    'django_cyverse_auth.authBackends.CASLoginBackend',
-    #'django_cyverse_auth.authBackends.SAMLLoginBackend',
+    'django_giji_auth.authBackends.CASLoginBackend',
+    #'django_giji_auth.authBackends.SAMLLoginBackend',
     ## For Service-Access
-    'django_cyverse_auth.authBackends.LDAPLoginBackend',
+    'django_giji_auth.authBackends.LDAPLoginBackend',
 )
 
 # django-cors-headers
@@ -395,11 +395,11 @@ REST_FRAMEWORK = {
         'api.renderers.PandasExcelRenderer',
     ),
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'django_cyverse_auth.token.TokenAuthentication', # Generic Tokens
-        # 'django_cyverse_auth.token.JWTTokenAuthentication',  # WSO2+JWT
-        'django_cyverse_auth.token.OAuthTokenAuthentication',  # CAS
-        #'django_cyverse_auth.token.GlobusOAuthTokenAuthentication',  # Globus
-        # 'django_cyverse_auth.token.TokenAuthentication',  # Generic Tokens
+        'django_giji_auth.token.TokenAuthentication', # Generic Tokens
+        # 'django_giji_auth.token.JWTTokenAuthentication',  # WSO2+JWT
+        'django_giji_auth.token.OAuthTokenAuthentication',  # CAS
+        #'django_giji_auth.token.GlobusOAuthTokenAuthentication',  # Globus
+        # 'django_giji_auth.token.TokenAuthentication',  # Generic Tokens
         'rest_framework.authentication.SessionAuthentication',  # Session
     ),
     'DEFAULT_PAGINATION_CLASS': 'api.pagination.StandardResultsSetPagination',

@@ -43,7 +43,7 @@ uWSGI
 
 ## ours
 chromogenic
-django-cyverse-auth
+django-giji-auth
 threepio
 rtwo
 subspace

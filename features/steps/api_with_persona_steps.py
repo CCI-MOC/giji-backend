@@ -58,7 +58,7 @@ def i_log_in(context):
     context.persona['client'] = client
     with django.test.modify_settings(AUTHENTICATION_BACKENDS={
         'prepend': 'django.contrib.auth.backends.ModelBackend',
-        'remove': ['django_cyverse_auth.authBackends.MockLoginBackend']
+        'remove': ['django_giji_auth.authBackends.MockLoginBackend']
     }):
         login_result = client.login(username=context.persona['username'], password=context.persona['password'])
         context.test.assertTrue(login_result)
@@ -73,7 +73,7 @@ def i_log_in_with_valid_xsede_project_required_and_default_quota_plugin_enabled(
     client = rest_framework.test.APIClient()
     context.persona['client'] = client
     with django.test.override_settings(
-            AUTHENTICATION_BACKENDS=['django_cyverse_auth.authBackends.MockLoginBackend'],
+            AUTHENTICATION_BACKENDS=['django_giji_auth.authBackends.MockLoginBackend'],
             ALWAYS_AUTH_USER=context.persona['username'],
             DEFAULT_QUOTA_PLUGINS=['jetstream.plugins.quota.default_quota.JetstreamSpecialAllocationQuota'],
     ):
@@ -106,7 +106,7 @@ def i_log_in_with_valid_xsede_project_required(context):
         example = dict(zip(context.scenario._row.headings, context.scenario._row.cells))
         is_tas_up = example.get('is_tas_up', 'Yes') == 'Yes'
     with django.test.override_settings(
-            AUTHENTICATION_BACKENDS=['django_cyverse_auth.authBackends.MockLoginBackend'],
+            AUTHENTICATION_BACKENDS=['django_giji_auth.authBackends.MockLoginBackend'],
             ALWAYS_AUTH_USER=context.persona['username'],
             DEFAULT_QUOTA_PLUGINS=['jetstream.plugins.quota.default_quota.JetstreamSpecialAllocationQuota'],
             VALIDATION_PLUGINS=['jetstream.plugins.auth.validation.XsedeProjectRequired']
